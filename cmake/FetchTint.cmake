@@ -1,19 +1,19 @@
 # This file is part of the "Learn WebGPU for C++" book.
 #   https://eliemichel.github.io/LearnWebGPU
-# 
+#
 # MIT License
 # Copyright (c) 2022-2024 Elie Michel and the wgpu-native authors
-# 
+#
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
 # in the Software without restriction, including without limitation the rights
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -31,15 +31,12 @@ include(FetchContent)
 
 FetchContent_Declare(
 	tint
-	#GIT_REPOSITORY https://dawn.googlesource.com/dawn
-	#GIT_TAG        chromium/6719
-	#GIT_SHALLOW ON
 
 	# Manual download mode, even shallower than GIT_SHALLOW ON
 	DOWNLOAD_COMMAND
 		cd ${FETCHCONTENT_BASE_DIR}/tint-src &&
 		git init &&
-		git fetch --depth=1 https://dawn.googlesource.com/dawn chromium/6802 &&
+		git fetch --depth=1 https://dawn.googlesource.com/dawn chromium/6882 &&
 		git reset --hard FETCH_HEAD
 
 	# PATCH_COMMAND
@@ -83,7 +80,7 @@ set(AllDawnTargets
 	dawn_shared_utils
 	enum_string_mapping
 	extinst_tables
-	
+
 	tint-format
 	tint-lint
 	tint_api

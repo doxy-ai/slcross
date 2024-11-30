@@ -26,7 +26,7 @@ namespace slcross {
 	template<std::convertible_to<spirv>... M>
 	spirv link(const M&... modules) {
 		std::vector<spirv> binaries; binaries.reserve(sizeof...(modules));
-		([&binaries](spirv& module) {
+		([&binaries](const spirv& module) {
 			binaries.emplace_back(module);
 			return true;
 		}(modules) && ...);
@@ -34,10 +34,7 @@ namespace slcross {
 		return link(binaries);
 	}
 
-	namespace wgsl {
-		spirv parse_from_memory(const std::string_view content, bool target_vulkan = true, const std::string_view path = "generated.wgsl");
-		std::string generate(spirv_view module);
-	}
+	std::string disassemble(spirv_view spirv);
 
 	enum class shader_stage {
 		Vertex,
@@ -58,14 +55,24 @@ namespace slcross {
 
 	namespace glsl {
 
+#ifdef SLCROSS_ENABLE_READING_GLSL
 		spirv parse_from_memory(
-			shader_stage stage, 
-			const std::string_view content, 
+			shader_stage stage,
+			const std::string_view content,
 			const std::string_view entry_point = "main",
 			client_version version = client_version::Vulkan_1_3
 		);
+#endif
 
-		std::string generate(spirv_view module, bool target_vulkan = true, bool target_web = false, uint32_t version = 450);
+		std::string generate(spirv_view module, shader_stage stage, std::string_view entry_point = "main", bool target_vulkan = true, bool target_web = false, uint32_t version = 450);
+
+#ifdef SLCROSS_ENABLE_READING_GLSL
+		inline spirv canonicalize(spirv_view module, shader_stage stage) {
+			// auto spirv = slcross::disassemble(module);
+			auto glsl = slcross::glsl::generate(module, stage);
+			return slcross::glsl::parse_from_memory(stage, glsl);
+		}
+#endif
 	}
 
 	namespace hlsl {
@@ -75,4 +82,26 @@ namespace slcross {
 	namespace msl {
 		std::string generate(spirv_view module, bool target_IOS = false);
 	}
+
+#ifdef SLCROSS_ENABLE_SLANG
+	namespace slang {
+		struct session;
+		session* create_session();
+		void free_session(session* session);
+
+		bool inject_module_from_memory(session* session, std::string_view content, std::string_view path = "generated.slang", std::string_view module = "generated");
+
+		spirv parse_from_memory(session* session, std::string_view content, std::string_view entry_point = "main", std::string_view path = "generated.slang", std::string_view module = "generated");
+		inline spirv parse_from_memory(std::string_view content, std::string_view entry_point = "main", std::string_view path = "generated.slang", std::string_view module = "generated") {
+			return parse_from_memory(nullptr, content, entry_point, path, module);
+		}
+	}
+#endif // SLCROSS_ENABLE_SLANG
+
+#ifdef SLCROSS_ENABLE_WGSL
+	namespace wgsl {
+		spirv parse_from_memory(const std::string_view content, bool target_vulkan = true, const std::string_view path = "generated.wgsl");
+		std::string generate(spirv_view module);
+	}
+#endif // SLCROSS_ENABLE_WGSL
 }

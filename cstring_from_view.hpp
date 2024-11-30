@@ -1,3 +1,5 @@
+#pragma once
+
 #include <string>
 	
 // Creates a c-string from a string view

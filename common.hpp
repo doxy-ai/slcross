@@ -24,6 +24,11 @@ namespace slcross {
 			}
 			return data;
 		}
+
+		inline std::string remove_whitespace(std::string result) {
+			result.erase(std::remove_if(result.begin(), result.end(), ::isspace), result.end());
+			return result;
+		}
 	}
 
 	inline std::string read_entire_file(std::filesystem::path path, bool support_pragma_once) {
