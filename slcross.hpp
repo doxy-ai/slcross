@@ -34,11 +34,6 @@ namespace slcross {
 		return link(binaries);
 	}
 
-	namespace wgsl {
-		spirv parse_from_memory(const std::string_view content, bool target_vulkan = true, const std::string_view path = "generated.wgsl");
-		std::string generate(spirv_view module);
-	}
-
 	enum class shader_stage {
 		Vertex,
 		TesselationControl,
@@ -58,12 +53,14 @@ namespace slcross {
 
 	namespace glsl {
 
+#ifdef SLCROSS_ENABLE_READING_GLSL
 		spirv parse_from_memory(
 			shader_stage stage, 
 			const std::string_view content, 
 			const std::string_view entry_point = "main",
 			client_version version = client_version::Vulkan_1_3
 		);
+#endif
 
 		std::string generate(spirv_view module, bool target_vulkan = true, bool target_web = false, uint32_t version = 450);
 	}
@@ -75,4 +72,17 @@ namespace slcross {
 	namespace msl {
 		std::string generate(spirv_view module, bool target_IOS = false);
 	}
+
+#ifdef SLCROSS_ENABLE_SLANG
+	namespace slang {
+		spirv parse_from_memory(std::string_view content, std::string_view entry_point = "main", std::string_view path = "generated.slang", std::string_view module = "generated");
+	}
+#endif // SLCROSS_ENABLE_SLANG
+
+#ifdef SLCROSS_ENABLE_WGSL
+	namespace wgsl {
+		spirv parse_from_memory(const std::string_view content, bool target_vulkan = true, const std::string_view path = "generated.wgsl");
+		std::string generate(spirv_view module);
+	}
+#endif // SLCROSS_ENABLE_WGSL
 }

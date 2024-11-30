@@ -2,19 +2,29 @@
 #include "slcross.hpp"
 #include "cstring_from_view.hpp"
 
-#include <tint/tint.h>
-
 #include <spirv-tools/optimizer.hpp>
 #include <spirv-tools/linker.hpp>
 #include <spirv-tools/libspirv.hpp>
 
-#include <glslang/Public/ShaderLang.h>
-#include <glslang/Public/ResourceLimits.h>
-#include <glslang/SPIRV/GlslangToSpv.h>
-
 #include <spirv_glsl.hpp>
 #include <spirv_hlsl.hpp>
 #include <spirv_msl.hpp>
+
+#ifdef SLCROSS_ENABLE_READING_GLSL
+	#include <glslang/Public/ShaderLang.h>
+	#include <glslang/Public/ResourceLimits.h>
+	#include <glslang/SPIRV/GlslangToSpv.h>
+#endif // SLCROSS_ENABLE_READING_GLSL
+
+#ifdef SLCROSS_ENABLE_SLANG
+	#include <slang-com-ptr.h>
+	#include <slang.h>
+	#include <core/slang-string-util.h>
+#endif // SLCROSS_ENABLE_SLANG
+
+#ifdef SLCROSS_ENABLE_WGSL
+	#include <tint/tint.h>
+#endif // SLCROSS_ENABLE_WGSL
 
 namespace slcross {
 
@@ -45,7 +55,7 @@ namespace slcross {
 		return optimized;
 	}
 
-	spirv link(std::vector<std::vector<uint32_t>> binaries) {		
+	spirv link(std::vector<std::vector<uint32_t>> binaries) {
 		spvtools::Context ctx(SPV_ENV_VULKAN_1_3);
 		std::ostringstream s;
 		ctx.SetMessageConsumer([&s](spv_message_level_t level, const char* source, const spv_position_t& position, const char* message) {
@@ -58,6 +68,196 @@ namespace slcross {
 		return linked;
 	}
 
+	namespace glsl {
+#ifdef SLCROSS_ENABLE_READING_GLSL
+		namespace detail {
+			inline void maybe_initialize_glslang() {
+				static bool glslang_initialized = false;
+				if(!glslang_initialized) {
+					glslang::InitializeProcess();
+					glslang_initialized = true;
+				}
+			}
+
+			inline EShLanguage to_glslang(shader_stage stage) {
+				switch(stage){
+				case shader_stage::Vertex: return EShLangVertex;
+				case shader_stage::TesselationControl: return EShLangTessControl;
+				case shader_stage::TesselationEvaluation: return EShLangTessEvaluation;
+				case shader_stage::Geometry: return EShLangGeometry;
+				case shader_stage::Fragment: return EShLangFragment;
+				case shader_stage::Compute: return EShLangCompute;
+				case shader_stage::RayGen: return EShLangRayGen;
+				case shader_stage::Intersect: return EShLangIntersect;
+				case shader_stage::AnyHit: return EShLangAnyHit;
+				case shader_stage::ClosestHit: return EShLangClosestHit;
+				case shader_stage::Miss: return EShLangMiss;
+				case shader_stage::Callable: return EShLangCallable;
+				case shader_stage::Task: return EShLangTask;
+				case shader_stage::Mesh: return EShLangMesh;
+				default: return EShLangVertex;
+				}
+			}
+		}
+
+		spirv parse_from_memory(
+			shader_stage stage,
+			const std::string_view content,
+			const std::string_view entry_point_ /*= "main"*/,
+			client_version version /*= spirv_version::Vulkan_1_3*/
+			// glslang::EShTargetClientVersion version = glslang::EShTargetClientVersion::EShTargetVulkan_1_3
+			// const std::string& path = "generated.glsl"
+		) {
+			detail::maybe_initialize_glslang();
+			auto client = version == client_version::OpenGL_450 ? glslang::EShClient::EShClientOpenGL : glslang::EShClient::EShClientVulkan;
+
+			const char* shaderSource = cstring_from_view(content);
+			const char* entry_point = cstring_from_view<1>(entry_point_);
+			glslang::TShader shader(detail::to_glslang(stage));
+			shader.setEnvInput(glslang::EShSource::EShSourceGlsl, detail::to_glslang(stage), client, 100);
+			shader.setEnvClient(client, (glslang::EShTargetClientVersion)version);
+			shader.setEnvTarget(glslang::EShTargetLanguage::EShTargetSpv, glslang::EShTargetLanguageVersion::EShTargetSpv_1_3);
+			shader.setEntryPoint(entry_point);
+			shader.setSourceEntryPoint(entry_point);
+			shader.setStrings(&shaderSource, 1);
+
+			if (!shader.parse(GetDefaultResources(), 100, false, EShMsgDefault))
+				throw error(shader.getInfoLog());
+
+			glslang::TProgram program;
+			program.addShader(&shader);
+
+			if (!program.link(EShMsgDefault)) throw error(program.getInfoLog());
+
+			std::vector<uint32_t> spirv;
+			glslang::GlslangToSpv(*program.getIntermediate(detail::to_glslang(stage)), spirv);
+			return spirv;
+		}
+#endif // SLCROSS_ENABLE_READING_GLSL
+
+		std::string generate(spirv_view module, bool target_vulkan /* = true */, bool target_web /* = false */, uint32_t version /* = 450 */) {
+			spirv_cross::CompilerGLSL glsl(module.data(), module.size());
+			glsl.set_common_options({.version = version, .es = target_web, .vulkan_semantics = target_vulkan});
+			return glsl.compile();
+		}
+	}
+
+	namespace hlsl {
+		std::string generate(spirv_view module, uint32_t shader_model /* = 30 */) {
+			spirv_cross::CompilerHLSL hlsl(module.data(), module.size());
+			hlsl.set_hlsl_options({.shader_model = shader_model});
+			return hlsl.compile();
+		}
+	}
+
+	namespace msl {
+		std::string generate(spirv_view module, bool target_IOS /* = false */) {
+			spirv_cross::CompilerMSL msl(module.data(), module.size());
+			msl.set_msl_options({.platform = target_IOS ? spirv_cross::CompilerMSL::Options::iOS : spirv_cross::CompilerMSL::Options::macOS});
+			return msl.compile();
+		}
+	}
+
+#ifdef SLCROSS_ENABLE_SLANG
+	#define ASSERT_ON_FAIL(x) \
+    {                           \
+        SlangResult _res = (x); \
+        if (SLANG_FAILED(_res)) \
+        {                       \
+            assert(false);      \
+            return {};          \
+        }                       \
+    }
+
+	namespace slang {
+		namespace detail {
+			::slang::IGlobalSession* maybe_create_global_session() {
+				static Slang::ComPtr<::slang::IGlobalSession> global_session = []() -> Slang::ComPtr<::slang::IGlobalSession>{
+					Slang::ComPtr<::slang::IGlobalSession> slangGlobalSession;
+					SLANG_RETURN_NULL_ON_FAIL(::slang::createGlobalSession(slangGlobalSession.writeRef()));
+					return slangGlobalSession;
+				}();
+				return global_session.get();
+			}
+		}
+
+		spirv parse_from_memory(std::string_view content, std::string_view entry_point /* = "main" */, std::string_view path /* = "generated.slang" */, std::string_view module /* = "generated" */) {
+			// First we need to create slang global session with work with the Slang API.
+			auto globalSession = detail::maybe_create_global_session();
+
+			::slang::SessionDesc sessionDesc = {};
+			::slang::TargetDesc targetDesc = {};
+			targetDesc.format = SLANG_SPIRV;
+			targetDesc.profile = globalSession->findProfile("spirv_1_5");
+			targetDesc.flags = 0;
+
+			sessionDesc.targets = &targetDesc;
+			sessionDesc.targetCount = 1;
+
+			std::vector<::slang::CompilerOptionEntry> options;
+			options.push_back(
+				{::slang::CompilerOptionName::EmitSpirvDirectly,
+				{::slang::CompilerOptionValueKind::Int, 1, 0, nullptr, nullptr}});
+			sessionDesc.compilerOptionEntries = options.data();
+			sessionDesc.compilerOptionEntryCount = options.size();
+
+			Slang::ComPtr<::slang::ISession> session;
+			ASSERT_ON_FAIL(globalSession->createSession(sessionDesc, session.writeRef()));
+
+			::slang::IModule* slangModule = nullptr;
+			{
+				Slang::ComPtr<::slang::IBlob> diagnosticBlob;
+				slangModule = session->loadModuleFromSourceString(cstring_from_view<0>(module), cstring_from_view<1>(path), cstring_from_view<2>(content));
+				if(diagnosticBlob != nullptr)
+					fprintf(stderr, "%s", (char*)diagnosticBlob->getBufferPointer());
+				if (!slangModule)
+					return {};
+			}
+
+			Slang::ComPtr<::slang::IEntryPoint> entryPoint;
+			slangModule->findEntryPointByName(cstring_from_view<4>(entry_point), entryPoint.writeRef());
+			if (!entryPoint) {
+				fprintf(stderr, "Failed to find entry point: %s", std::string(entry_point).c_str());
+				return {};
+			}
+
+			Slang::List<::slang::IComponentType*> componentTypes;
+			componentTypes.add(slangModule);
+			componentTypes.add(entryPoint);
+
+			Slang::ComPtr<::slang::IComponentType> composedProgram;
+			{
+				Slang::ComPtr<::slang::IBlob> diagnosticBlob;
+				SlangResult result = session->createCompositeComponentType(
+					componentTypes.getBuffer(),
+					componentTypes.getCount(),
+					composedProgram.writeRef(),
+					diagnosticBlob.writeRef());
+				if(diagnosticBlob != nullptr)
+					fprintf(stderr, "%s", (char*)diagnosticBlob->getBufferPointer());
+				ASSERT_ON_FAIL(result);
+			}
+
+			Slang::ComPtr<::slang::IBlob> spirvCode;
+			{
+				Slang::ComPtr<::slang::IBlob> diagnosticBlob;
+				SlangResult result = composedProgram->getEntryPointCode(
+					0,
+					0,
+					spirvCode.writeRef(),
+					diagnosticBlob.writeRef());
+				if(diagnosticBlob != nullptr)
+					fprintf(stderr, "%s", (char*)diagnosticBlob->getBufferPointer());
+				ASSERT_ON_FAIL(result);
+			}
+
+			auto view = spirv_view{static_cast<const uint32_t*>(spirvCode->getBufferPointer()), spirvCode->getBufferSize()/ sizeof(uint32_t)}; // TODO: Need to divide size by 4?
+			return spirv{view.begin(), view.end()};
+		}
+	}
+#endif // SLCROSS_ENABLE_SLANG
+
+#ifdef SLCROSS_ENABLE_WGSL
 	namespace wgsl {
 		namespace detail {
 			inline void maybe_initialize_tint() {
@@ -96,92 +296,5 @@ namespace slcross {
 			return output->wgsl;
 		}
 	}
-
-	namespace glsl {
-		namespace detail {
-			inline void maybe_initialize_glslang() {
-				static bool glslang_initialized = false;
-				if(!glslang_initialized) {
-					glslang::InitializeProcess();
-					glslang_initialized = true;
-				}
-			}
-
-			inline EShLanguage to_glslang(shader_stage stage) {
-				switch(stage){
-				case shader_stage::Vertex: return EShLangVertex;
-				case shader_stage::TesselationControl: return EShLangTessControl;
-				case shader_stage::TesselationEvaluation: return EShLangTessEvaluation;
-				case shader_stage::Geometry: return EShLangGeometry;
-				case shader_stage::Fragment: return EShLangFragment;
-				case shader_stage::Compute: return EShLangCompute;
-				case shader_stage::RayGen: return EShLangRayGen;
-				case shader_stage::Intersect: return EShLangIntersect;
-				case shader_stage::AnyHit: return EShLangAnyHit;
-				case shader_stage::ClosestHit: return EShLangClosestHit;
-				case shader_stage::Miss: return EShLangMiss;
-				case shader_stage::Callable: return EShLangCallable;
-				case shader_stage::Task: return EShLangTask;
-				case shader_stage::Mesh: return EShLangMesh;
-				default: return EShLangVertex;
-				}
-			}
-		}
-
-		spirv parse_from_memory(
-			shader_stage stage, 
-			const std::string_view content, 
-			const std::string_view entry_point_ /*= "main"*/,
-			client_version version /*= spirv_version::Vulkan_1_3*/
-			// glslang::EShTargetClientVersion version = glslang::EShTargetClientVersion::EShTargetVulkan_1_3
-			// const std::string& path = "generated.glsl"
-		) {
-			detail::maybe_initialize_glslang();
-			auto client = version == client_version::OpenGL_450 ? glslang::EShClient::EShClientOpenGL : glslang::EShClient::EShClientVulkan;
-
-			const char* shaderSource = cstring_from_view(content);
-			const char* entry_point = cstring_from_view<1>(entry_point_);
-			glslang::TShader shader(detail::to_glslang(stage));
-			shader.setEnvInput(glslang::EShSource::EShSourceGlsl, detail::to_glslang(stage), client, 100);
-			shader.setEnvClient(client, (glslang::EShTargetClientVersion)version);
-			shader.setEnvTarget(glslang::EShTargetLanguage::EShTargetSpv, glslang::EShTargetLanguageVersion::EShTargetSpv_1_3);
-			shader.setEntryPoint(entry_point);
-			shader.setSourceEntryPoint(entry_point);
-			shader.setStrings(&shaderSource, 1);
-			
-			if (!shader.parse(GetDefaultResources(), 100, false, EShMsgDefault))
-				throw error(shader.getInfoLog());
-
-			glslang::TProgram program;
-			program.addShader(&shader);
-			
-			if (!program.link(EShMsgDefault)) throw error(program.getInfoLog());
-
-			std::vector<uint32_t> spirv;
-			glslang::GlslangToSpv(*program.getIntermediate(detail::to_glslang(stage)), spirv);
-			return spirv;
-		}
-
-		std::string generate(spirv_view module, bool target_vulkan /* = true */, bool target_web /* = false */, uint32_t version /* = 450 */) {
-			spirv_cross::CompilerGLSL glsl(module.data(), module.size());
-			glsl.set_common_options({.version = version, .es = target_web, .vulkan_semantics = target_vulkan});
-			return glsl.compile();
-		}
-	}
-
-	namespace hlsl {
-		std::string generate(spirv_view module, uint32_t shader_model /* = 30 */) {
-			spirv_cross::CompilerHLSL hlsl(module.data(), module.size());
-			hlsl.set_hlsl_options({.shader_model = shader_model});
-			return hlsl.compile();
-		}
-	}
-
-	namespace msl {
-		std::string generate(spirv_view module, bool target_IOS /* = false */) {
-			spirv_cross::CompilerMSL msl(module.data(), module.size());
-			msl.set_msl_options({.platform = target_IOS ? spirv_cross::CompilerMSL::Options::iOS : spirv_cross::CompilerMSL::Options::macOS});
-			return msl.compile();
-		}
-	}
+#endif // SLCROSS_ENABLE_WGSL
 }
