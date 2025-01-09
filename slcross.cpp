@@ -13,7 +13,7 @@
 #ifdef SLCROSS_ENABLE_READING_GLSL
 	#include <glslang/Public/ShaderLang.h>
 	#include <glslang/Public/ResourceLimits.h>
-	#include <glslang/SPIRV/GlslangToSpv.h>
+	#include <SPIRV/GlslangToSpv.h>
 #endif // SLCROSS_ENABLE_READING_GLSL
 
 #ifdef SLCROSS_ENABLE_SLANG

@@ -14,21 +14,24 @@ FetchContent_Declare(
 
 FetchContent_GetProperties(slang)
 if (NOT slang_POPULATED)
-	FetchContent_Populate(slang)
-
-	set(SLANG_LIB_TYPE STATIC)
-	set(SLANG_SLANG_LLVM_FLAVOR DISABLE)
+	set(SLANG_EMBED_CORE_MODULE OFF CACHE BOOL "Build slang with an embedded version of the core module")
+	set(SLANG_LIB_TYPE "STATIC" CACHE STRING "Slang library type")
+	set(SLANG_SLANG_LLVM_FLAVOR "DISABLE" CACHE STRING "Do not build llvm or fetch slang-llvm")
 
 	set(SLANG_USE_SYSTEM_SPIRV_HEADERS ON)
 	set(SLANG_SPIRV_HEADERS_INCLUDE_DIR "${slang_SOURCE_DIR}/external/spirv-headers/include")
 	set(SLANG_ENABLE_SLANG_GLSLANG OFF)
 
-	set(SLANG_ENABLE_GFX OFF)
-	set(SLANG_ENABLE_SLANGD OFF)
-	set(SLANG_ENABLE_SLANGC OFF)
-	set(SLANG_ENABLE_TESTS OFF)
-	set(SLANG_ENABLE_EXAMPLES OFF)
-	set(SLANG_ENABLE_SLANG_RHI OFF)
+	set(SLANG_ENABLE_GFX OFF CACHE BOOL "Disable unwanted slang component")
+	set(SLANG_ENABLE_SLANGD OFF CACHE BOOL "Disable unwanted slang component")
+	set(SLANG_ENABLE_SLANGC OFF CACHE BOOL "Disable unwanted slang component")
+	set(SLANG_ENABLE_TESTS OFF CACHE BOOL "Disable unwanted slang component")
+	set(SLANG_ENABLE_EXAMPLES OFF CACHE BOOL "Disable unwanted slang component")
+	set(SLANG_ENABLE_SLANG_RHI OFF CACHE BOOL "Disable unwanted slang component")
+	set(SLANG_ENABLE_REPLAYER OFF CACHE BOOL "Disable unwanted slang component")
+	set(SLANG_ENABLE_SLANGRT OFF CACHE BOOL "Disable unwanted slang component")
+
+	FetchContent_Populate(slang)
 
 	# Disable install
 	macro (install)
