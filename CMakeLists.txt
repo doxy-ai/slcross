@@ -1,7 +1,9 @@
-cmake_minimum_required(VERSION 2.20)
+cmake_minimum_required(VERSION 2.21)
 project(slcross CXX)
 
 set(CMAKE_CXX_STANDARD 20)
+
+option(SLCROSS_ENABLE_EXECUTABLE "Weather or not the transpiler executable should be built." ${PROJECT_IS_TOP_LEVEL})
 
 option(SLCROSS_ENABLE_READING_GLSL "Should SLCross support parsing GLSL? Writing GLSL is always supported!" ON)
 option(SLCROSS_ENABLE_WGSL "Should SLCross support WGSL?" ON)
@@ -40,3 +42,10 @@ endif()
 
 # bundle_static_library(slcross slcross_bundled)
 # add_library(slcross::bundled ALIAS slcross_bundled)
+
+if(SLCROSS_ENABLE_EXECUTABLE)
+	include(cmake/FetchArgParse.cmake)
+	add_executable(slcross_executable transpiler.cpp)
+	target_link_libraries(slcross_executable PUBLIC slcross morrisfranken::argparse slcross_magic_enum)
+	set_target_properties(slcross_executable PROPERTIES OUTPUT_NAME "slcross")
+endif()

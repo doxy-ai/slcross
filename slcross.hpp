@@ -36,6 +36,14 @@ namespace slcross {
 
 	std::string disassemble(spirv_view spirv);
 
+	enum class language {
+		glsl,
+		hlsl,
+		wgsl,
+		slang,
+		msl
+	};
+
 	enum class shader_stage {
 		Vertex,
 		TesselationControl,
@@ -80,7 +88,7 @@ namespace slcross {
 	}
 
 	namespace msl {
-		std::string generate(spirv_view module, bool target_IOS = false);
+		std::string generate(spirv_view module, bool target_iOS = false);
 	}
 
 #ifdef SLCROSS_ENABLE_SLANG

@@ -280,7 +280,7 @@ namespace slcross {
 				slangModule = session->loadModuleFromSourceString(cstring_from_view<0>(module), cstring_from_view<1>(path), cstring_from_view<2>(content), diagnosticBlob.writeRef());
 				report_slang_diagnostic(diagnosticBlob);
 				if (!slangModule)
-					throw error("Failed to load slang module");
+					throw error("Failed to load slang module!");
 			}
 
 			Slang::List<::slang::IComponentType*> componentTypes;
