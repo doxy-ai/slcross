@@ -23,18 +23,18 @@
 # SOFTWARE.
 
 # Prevent multiple includes
-if (TARGET tint_api)
+if (TARGET dawn_native)
 	return()
 endif()
 
 include(FetchContent)
 
 FetchContent_Declare(
-	tint
+	dawn
 
 	# Manual download mode, even shallower than GIT_SHALLOW ON
 	DOWNLOAD_COMMAND
-		cd ${FETCHCONTENT_BASE_DIR}/tint-src &&
+		cd ${FETCHCONTENT_BASE_DIR}/dawn-src &&
 		git init &&
 		git fetch --depth=1 https://dawn.googlesource.com/dawn chromium/6719 &&
 		git reset --hard FETCH_HEAD
@@ -43,21 +43,35 @@ FetchContent_Declare(
 	# 	git apply --ignore-space-change --ignore-whitespace "${CMAKE_CURRENT_LIST_DIR}/../patch/dawn.patch"
 )
 
-FetchContent_GetProperties(tint)
-if (NOT tint_POPULATED)
-	FetchContent_Populate(tint)
+FetchContent_GetProperties(dawn)
+if (NOT dawn_POPULATED)
+	FetchContent_Populate(dawn)
 
 	# This option replaces depot_tools
 	set(DAWN_FETCH_DEPENDENCIES ON)
 
-	# Disable all dawn backends (only want Tint)
+	if(WIN32)
+		set(USE_VULKAN OFF)
+		set(USE_METAL OFF)
+		set(USE_DX12 ON)
+	elseif(APPLE)
+		set(USE_VULKAN OFF)
+		set(USE_METAL ON)
+		set(USE_DX12 OFF)
+	else()
+		set(USE_VULKAN ON)
+		set(USE_METAL OFF)
+		set(USE_DX12 OFF)
+	endif()
+
 	set(DAWN_ENABLE_D3D11 OFF)
-	set(DAWN_ENABLE_D3D12 OFF)
-	set(DAWN_ENABLE_METAL OFF)
+	set(DAWN_ENABLE_D3D12 ${USE_DX12})
+	set(DAWN_ENABLE_METAL ${USE_METAL})
 	set(DAWN_ENABLE_NULL OFF)
 	set(DAWN_ENABLE_DESKTOP_GL OFF)
 	set(DAWN_ENABLE_OPENGLES OFF)
-	set(DAWN_ENABLE_VULKAN OFF)
+	set(DAWN_ENABLE_VULKAN ${USE_VULKAN})
+	set(DAWN_ENABLE_GLFW OFF)
 
 	set(TINT_BUILD_SPV_WRITER ON)
 	set(TINT_BUILD_SPV_READER ON)
@@ -72,14 +86,27 @@ if (NOT tint_POPULATED)
 	set(TINT_BUILD_TESTS OFF)
 	set(TINT_BUILD_IR_BINARY OFF)
 
-	add_subdirectory(${tint_SOURCE_DIR} ${tint_BINARY_DIR} EXCLUDE_FROM_ALL)
+	add_subdirectory(${dawn_SOURCE_DIR} ${dawn_BINARY_DIR} EXCLUDE_FROM_ALL)
 endif()
 
 set(AllDawnTargets
 	core_tables
+	dawn_common
+	dawn_glfw
+	dawn_headers
+	dawn_native
+	dawn_platform
+	dawn_proc
+	dawn_wire
+	dawn_native_objects
 	dawn_shared_utils
+	partition_alloc
+	dawncpp
+	dawncpp_headers
 	enum_string_mapping
 	extinst_tables
+	webgpu_dawn
+	webgpu_headers_gen
 
 	tint-format
 	tint-lint
