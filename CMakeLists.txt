@@ -1,24 +1,28 @@
-cmake_minimum_required(VERSION 2.21)
+cmake_minimum_required(VERSION 3.21)
 project(slcross CXX)
 
 set(CMAKE_CXX_STANDARD 20)
+include(CMakeDependentOption)
 
 option(SLCROSS_ENABLE_EXECUTABLE "Weather or not the transpiler executable should be built." ${PROJECT_IS_TOP_LEVEL})
 
 option(SLCROSS_ENABLE_READING_GLSL "Should SLCross support parsing GLSL? Writing GLSL is always supported!" ON)
 option(SLCROSS_ENABLE_WGSL "Should SLCross support WGSL?" ON)
+cmake_dependent_option(SLCROSS_ENABLE_DAWN "Should all of Dawn be built or just Tint?" OFF "SLCROSS_ENABLE_WGSL" OFF)
 option(SLCROSS_ENABLE_SLANG "Should SLCross support Slang?" ON)
 
-if(SLCROSS_ENABLE_WGSL)
-	include(cmake/FetchTint.cmake)
-endif()
 if(SLCROSS_ENABLE_SLANG)
 	include(cmake/FetchSlang.cmake)
+endif()
+if(SLCROSS_ENABLE_DAWN)
+	include(cmake/FetchDawn.cmake)
+elseif(SLCROSS_ENABLE_WGSL)
+	include(cmake/FetchTint.cmake)
 endif()
 include(cmake/bundle.cmake)
 
 if(SLCROSS_ENABLE_READING_GLSL)
-	add_subdirectory(${tint_SOURCE_DIR}/third_party/glslang/src ${CMAKE_CURRENT_BINARY_DIR}/glslang EXCLUDE_FROM_ALL)
+	add_subdirectory(${tint_SOURCE_DIR}${dawn_SOURCE_DIR}/third_party/glslang/src ${CMAKE_CURRENT_BINARY_DIR}/glslang EXCLUDE_FROM_ALL)
 endif()
 add_subdirectory(thirdparty/SPIRV-Cross EXCLUDE_FROM_ALL)
 
