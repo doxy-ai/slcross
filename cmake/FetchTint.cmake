@@ -36,7 +36,7 @@ FetchContent_Declare(
 	DOWNLOAD_COMMAND
 		cd ${FETCHCONTENT_BASE_DIR}/tint-src &&
 		git init &&
-		git fetch --depth=1 https://dawn.googlesource.com/dawn chromium/6719 &&
+		git fetch --depth=1 https://dawn.googlesource.com/dawn chromium/7325 &&
 		git reset --hard FETCH_HEAD
 
 	# PATCH_COMMAND

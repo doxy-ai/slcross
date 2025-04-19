@@ -36,7 +36,7 @@ FetchContent_Declare(
 	DOWNLOAD_COMMAND
 		cd ${FETCHCONTENT_BASE_DIR}/dawn-src &&
 		git init &&
-		git fetch --depth=1 https://dawn.googlesource.com/dawn chromium/6719 &&
+		git fetch --depth=1 https://dawn.googlesource.com/dawn chromium/7325 &&
 		git reset --hard FETCH_HEAD
 
 	# PATCH_COMMAND
@@ -63,6 +63,8 @@ if (NOT dawn_POPULATED)
 		set(USE_METAL OFF)
 		set(USE_DX12 OFF)
 	endif()
+
+	set(DAWN_BUILD_MONOLITHIC_LIBRARY STATIC)
 
 	set(DAWN_ENABLE_D3D11 OFF)
 	set(DAWN_ENABLE_D3D12 ${USE_DX12})

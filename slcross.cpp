@@ -387,11 +387,11 @@ namespace slcross {
 			tint::Source::File file(std::string{path}, std::string{content});
 			auto module = tint::wgsl::reader::WgslToIR(&file, {.allowed_features = tint::wgsl::AllowedFeatures::Everything()});
 			if(module != tint::Success)
-				throw error(module.Failure().reason.Str());
+				throw error(module.Failure().reason);
 
 			auto spirv = tint::spirv::writer::Generate(module.Get(), {.use_vulkan_memory_model = target_vulkan});
 			if(spirv != tint::Success)
-				throw error(spirv.Failure().reason.Str());
+				throw error(spirv.Failure().reason);
 			return spirv->spirv;
 		}
 
@@ -402,7 +402,7 @@ namespace slcross {
 
 			auto output = tint::wgsl::writer::Generate(tint, {});
 			if(output != tint::Success)
-				throw slcross::error(output.Failure().reason.Str());
+				throw slcross::error(output.Failure().reason);
 			return output->wgsl;
 		}
 	}
