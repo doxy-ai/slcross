@@ -10,6 +10,9 @@ FetchContent_Declare(
 		git fetch --depth=1 https://github.com/morrisfranken/argparse.git &&
 		git reset --hard FETCH_HEAD &&
 		git submodule update --depth 1 --init --recursive
+
+	PATCH_COMMAND
+		git apply --ignore-space-change --ignore-whitespace "${CMAKE_CURRENT_SOURCE_DIR}/patches/argparse.patch"
 )
 FetchContent_MakeAvailable(argparse)
 

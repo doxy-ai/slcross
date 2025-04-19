@@ -1,0 +1,13 @@
+diff --git a/source/compiler-core/slang-spirv-core-grammar.h b/source/compiler-core/slang-spirv-core-grammar.h
+index e91caa7..b3db67b 100644
+--- a/source/compiler-core/slang-spirv-core-grammar.h
++++ b/source/compiler-core/slang-spirv-core-grammar.h
+@@ -6,7 +6,7 @@
+ #include "../core/slang-string.h"
+ 
+ #include <optional>
+-#include <spirv/unified1/spirv.h>
++#include "../../external/spirv-headers/include/spirv/unified1/spirv.h"
+ 
+ namespace Slang
+ {
