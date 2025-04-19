@@ -7,7 +7,7 @@ FetchContent_Declare(
 	DOWNLOAD_COMMAND
 		cd ${FETCHCONTENT_BASE_DIR}/slang-src &&
 		git init &&
-		git fetch --depth=1 https://github.com/shader-slang/slang.git v2024.17 &&
+		git fetch --depth=1 https://github.com/shader-slang/slang.git v2025.13.1 &&
 		git reset --hard FETCH_HEAD &&
 		git submodule update --depth 1 --init --recursive
 
