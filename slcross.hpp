@@ -41,7 +41,8 @@ namespace slcross {
 		hlsl,
 		wgsl,
 		slang,
-		msl
+		msl,
+		spirv
 	};
 
 	enum class shader_stage {

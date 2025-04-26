@@ -1,5 +1,5 @@
+#include <cstring>
 #include <filesystem>
-#include <ios>
 #include <iostream>
 
 #include <argparse/argparse.hpp>
@@ -7,6 +7,7 @@
 
 #include "slcross.hpp"
 #include "thirdparty/glob.hpp"
+#include "read_entire_file.hpp"
 
 
 
@@ -29,26 +30,6 @@ struct Arguments : public argparse::Args {
 	bool& msl_target_ios = kwarg("msl-target-ios", "Should we be targeting iOS?").set_default(false);
 	std::vector<std::string>& slang_includes = kwarg("slang-includes", "Slang files to also import into the build").set_default(std::vector<std::string>{});
 };
-
-
-
-std::string read_entire_file(const std::string& path) {
-	if(path == ".") {
-		std::cin >> std::noskipws;
-		std::istream_iterator<char> it(std::cin);
-		std::istream_iterator<char> end;
-		return std::string(it, end);
-	}
-
-	std::ifstream fin(path);
-	if(!fin) throw std::runtime_error("Failed to open file: " + path);
-
-	fin.seekg(0, std::ios::end);
-	std::string out(fin.tellg(), '\0');
-	fin.seekg(0, std::ios::beg);
-	fin.read(out.data(), out.size());
-	return out;
-}
 
 std::vector<std::string_view> split(std::string_view str, const std::string_view delimiter) {
 	std::vector<std::string_view> result;
@@ -135,18 +116,20 @@ int main(int argc, char** argv) {
 		if(end != args.entry_point.end()) args.entry_point.erase(end);
 
 
+
+
 		slcross::spirv module;
 
 		switch(in.lang) {
 		break; case slcross::language::glsl:
 #ifdef SLCROSS_ENABLE_READING_GLSL
-			module = slcross::glsl::parse_from_memory(out.stage.value(), read_entire_file(in.file), args.entry_point);
+			module = slcross::glsl::parse_from_memory(out.stage.value(), slcross::read_entire_file_as_string(in.file), args.entry_point);
 #else
 			throw std::runtime_error("Parsing GLSL has been disabled in this build!");
 #endif
 		break; case slcross::language::wgsl:
 #ifdef SLCROSS_ENABLE_WGSL
-			module = slcross::wgsl::parse_from_memory(read_entire_file(in.file), args.glsl_target_vulkan, in.file);
+			module = slcross::wgsl::parse_from_memory(slcross::read_entire_file_as_string(in.file), args.glsl_target_vulkan, in.file);
 #else
 			throw std::runtime_error("Parsing WGSL has been disabled in this build!");
 #endif
@@ -163,12 +146,12 @@ int main(int argc, char** argv) {
 			auto session = slcross::slang::create_session();
 			for(auto path: globbed_slang_includes) {
 				auto module = std::filesystem::path(path).filename().replace_extension().string();
-				if(!inject_module_from_memory(session, read_entire_file(path), path, module))
+				if(!inject_module_from_memory(session, slcross::read_entire_file_as_string(path), path, module))
 					throw std::runtime_error("Failed to parse slang include: " + path);
 			}
 			auto mod = std::filesystem::path(in.file).filename().replace_extension().string();
 			if(in.file == ".") mod = "generated";
-			module = slcross::slang::parse_from_memory(session, read_entire_file(in.file), args.entry_point, in.file, mod);
+			module = slcross::slang::parse_from_memory(session, slcross::read_entire_file_as_string(in.file), args.entry_point, in.file, mod);
 		}
 #else
 		break; case slcross::language::hlsl: [[fallthrough]];
@@ -177,7 +160,14 @@ int main(int argc, char** argv) {
 #endif
 		break; case slcross::language::msl:
 			throw std::runtime_error("Parsing Metal shaders is not currently supported!");
+
+		break; case slcross::language::spirv: {
+			module = slcross::read_entire_file_as<uint32_t>(in.file);
 		}
+		}
+
+
+
 
 		slcross::validate(module);
 		if(args.optimize) module = slcross::optimize(module);
@@ -207,6 +197,11 @@ int main(int argc, char** argv) {
 			throw std::runtime_error("Outputting Slang shaders is not currently supported!");
 		break; case slcross::language::msl:
 			generated = slcross::msl::generate(module, args.msl_target_ios);
+		break; case slcross::language::spirv:
+
+			if(out.file == ".") std::cout.write((char*)module.data(), module.size() * sizeof(uint32_t));
+			else std::ofstream(out.file).write((char*)module.data(), module.size() * sizeof(uint32_t));
+			return 0;
 		}
 
 		if(out.file == ".") std::cout << generated << std::endl;
