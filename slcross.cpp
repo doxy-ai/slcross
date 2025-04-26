@@ -280,23 +280,23 @@ namespace slcross {
 				slangModule = session->loadModuleFromSourceString(cstring_from_view<0>(module), cstring_from_view<1>(path), cstring_from_view<2>(content), diagnosticBlob.writeRef());
 				report_slang_diagnostic(diagnosticBlob);
 				if (!slangModule)
-					throw error("Failed to load slang module!");
+					return false;
 			}
 
-			Slang::List<::slang::IComponentType*> componentTypes;
-			componentTypes.add(slangModule);
+			// Slang::List<::slang::IComponentType*> componentTypes;
+			// componentTypes.add(slangModule);
 
-			Slang::ComPtr<::slang::IComponentType> composedProgram;
-			{
-				Slang::ComPtr<::slang::IBlob> diagnosticBlob;
-				SlangResult result = session->createCompositeComponentType(
-					componentTypes.getBuffer(),
-					componentTypes.getCount(),
-					composedProgram.writeRef(),
-					diagnosticBlob.writeRef());
-				report_slang_diagnostic(diagnosticBlob);
-				ASSERT_ON_FAIL(result);
-			}
+			// Slang::ComPtr<::slang::IComponentType> composedProgram;
+			// {
+			// 	Slang::ComPtr<::slang::IBlob> diagnosticBlob;
+			// 	SlangResult result = session->createCompositeComponentType(
+			// 		componentTypes.getBuffer(),
+			// 		componentTypes.getCount(),
+			// 		composedProgram.writeRef(),
+			// 		diagnosticBlob.writeRef());
+			// 	report_slang_diagnostic(diagnosticBlob);
+			// 	ASSERT_ON_FAIL(result);
+			// }
 
 			return true;
 		}
@@ -326,7 +326,8 @@ namespace slcross {
 			}
 
 			Slang::ComPtr<::slang::IEntryPoint> entryPoint;
-			slangModule->findEntryPointByName(cstring_from_view<4>(entry_point), entryPoint.writeRef());
+			auto dbg = cstring_from_view<4>(entry_point);
+			slangModule->findEntryPointByName(dbg, entryPoint.writeRef());
 			if (!entryPoint)
 				throw error("Failed to find entry point: " + std::string(entry_point));
 
@@ -355,10 +356,10 @@ namespace slcross {
 					0,
 					spirvCode.writeRef(),
 					diagnosticBlob.writeRef());
-				report_slang_diagnostic(diagnosticBlob);
-				// if(diagnosticBlob != nullptr)
-				// 	// NOTE: There is always a library not found error! So we don't throw an exception...
-				// 	fprintf(stderr, "%s\n", (char*)diagnosticBlob->getBufferPointer());
+				static bool first = true;
+				if(!first) // The first time it will complain about some missing irrelevant libraries
+					report_slang_diagnostic(diagnosticBlob);
+				else first = false;
 				ASSERT_ON_FAIL(result);
 			}
 

@@ -8,7 +8,7 @@
 template<size_t uniqueID = 0>
 inline const char* cstring_from_view(const std::string_view view) {
 	static std::string tmp;
-	if(view.data()[view.size()] == '\0') return view.data();
+	if(*(view.data() + view.size()) == '\0') return view.data();
 	tmp = view;
 	return tmp.c_str();
 }
